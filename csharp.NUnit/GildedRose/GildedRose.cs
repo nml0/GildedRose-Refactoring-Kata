@@ -17,7 +17,20 @@ public class GildedRose
     public const int MaxQuality = 50;
 
     // Increasingly ordered quality change rates.
-    public static readonly int[] qualityChangeRates = {1, 2, 4};
+    public static readonly Dictionary<string, int> QualityDeltas = new Dictionary<string, int>
+    {
+        { "Slow",       1 },
+        { "Medium",     2 },
+        { "Fast",       3 },
+        { "VeryFast",   4 }
+    };
+
+    public enum BackstagePassLimits
+    {
+        ZERO_DAYS = 0,
+        FIVE_DAYS = 5,
+        TEN_DAYS = 10
+    }
 
     public GildedRose(IList<Item> Items)
     {
@@ -26,25 +39,23 @@ public class GildedRose
 
     public int CalculatePassesQuality(int sellIn)
     {
-        int[] backstagePassLimits = {10, 5, 0};
         int qualityChange = 0;
 
-        if(sellIn > backstagePassLimits[0])
+        if(sellIn > (int)BackstagePassLimits.TEN_DAYS)
         {
-            qualityChange = 1;
+            qualityChange = QualityDeltas["Slow"];
         }
-        else if (sellIn<= backstagePassLimits[0] && 
-                 sellIn>  backstagePassLimits[1])
+        else if (sellIn <= (int)BackstagePassLimits.TEN_DAYS && 
+                 sellIn  > (int)BackstagePassLimits.FIVE_DAYS)
         {
-            qualityChange = 2;
+            qualityChange = QualityDeltas["Medium"];
         }
-        else if (sellIn<= backstagePassLimits[1] && 
-                 sellIn>  backstagePassLimits[2])
+        else if (sellIn <= (int)BackstagePassLimits.FIVE_DAYS && 
+                 sellIn  > (int)BackstagePassLimits.ZERO_DAYS)
         {
-            qualityChange = 3;
+            qualityChange = QualityDeltas["Fast"];
         }
         return qualityChange;
-
     }
 
     public int GetQualityChange(Item item)
@@ -55,7 +66,7 @@ public class GildedRose
         {
             // Quality incrementing cases:
             case("Aged Brie"):
-                qualityChange = (item.SellIn > 0) ? qualityChangeRates[0] : qualityChangeRates[1];
+                qualityChange = (item.SellIn > 0) ?  QualityDeltas["Slow"]: QualityDeltas["Medium"];
             break;
 
             case("Backstage passes to a TAFKAL80ETC concert"):
@@ -64,11 +75,11 @@ public class GildedRose
 
             // Quality decrementing cases:
             case("Conjured Mana Cake"):
-                qualityChange = (item.SellIn > 0) ? -qualityChangeRates[1] : -qualityChangeRates[2];
+                qualityChange = (item.SellIn > 0) ? -QualityDeltas["Medium"] : -QualityDeltas["VeryFast"];
             break;
 
             default:
-                qualityChange = (item.SellIn > 0) ? -qualityChangeRates[0] : -qualityChangeRates[1];
+                qualityChange = (item.SellIn > 0) ? -QualityDeltas["Slow"] : -QualityDeltas["Medium"];
             break;
         }
 
