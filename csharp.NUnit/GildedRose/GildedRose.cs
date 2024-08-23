@@ -12,76 +12,67 @@ public class GildedRose
     // The following list contains items that shall not be updated on their stats.
     public static readonly ImmutableList<string> LegendaryItemsNames = ImmutableList.Create("Sulfuras, Hand of Ragnaros");
 
-    // The following list contains items that get more valuable over time.
-    public static readonly ImmutableList<string> AppreciatingItemsNames = ImmutableList.Create("Aged Brie", "Backstage passes to a TAFKAL80ETC concert");
-
-
     // For all updatable items, their quality stat must be restricted to [0, 50].
     public const int MinQuality = 0;
     public const int MaxQuality = 50;
 
-    public const int passLimit1  = 10; // : quality+= 1
-    public const int passLimit2  = 5; // : quality+= 2
-    public const int passLimit3  = 0; // : quality+= 3 // : quality reset
-
+    // Increasingly ordered quality change rates.
+    public static readonly int[] qualityChangeRates = {1, 2, 4};
 
     public GildedRose(IList<Item> Items)
     {
         this.Items = Items;
     }
 
-    public int CalculateQualityIncrement(Item item)
+    public int CalculatePassesQuality(int sellIn)
     {
-        int qualityInc = 0;
+        int[] backstagePassLimits = {10, 5, 0};
+        int qualityChange = 0;
 
-        if (item.Name == "Aged Brie")
+        if(sellIn > backstagePassLimits[0])
         {
-            if(item.SellIn > 0)
-            {
-                qualityInc = 1;
-            }
-            else
-            {
-                qualityInc = 2;
-            }
+            qualityChange = 1;
         }
-        else if (item.Name == "Backstage passes to a TAFKAL80ETC concert")
+        else if (sellIn<= backstagePassLimits[0] && 
+                 sellIn>  backstagePassLimits[1])
         {
-            if(item.SellIn > passLimit1)
-            {
-                qualityInc = 1;
-            }
-            else if (item.SellIn <= passLimit1 && item.SellIn > passLimit2)
-            {
-                qualityInc = 2;
-            }
-            else if (item.SellIn <= passLimit2 && item.SellIn > passLimit3)
-            {
-                qualityInc = 3;
-            }
-            else
-            {
-                qualityInc = -item.Quality;
-            }
+            qualityChange = 2;
         }
+        else if (sellIn<= backstagePassLimits[1] && 
+                 sellIn>  backstagePassLimits[2])
+        {
+            qualityChange = 3;
+        }
+        return qualityChange;
 
-        return qualityInc;
     }
 
-    public int CalculateQualityDecrement(Item item)
+    public int GetQualityChange(Item item)
     {
-        int qualityDec = 0;
+        int qualityChange;
 
-        if(item.SellIn > 0)
+        switch(item.Name)
         {
-            qualityDec = 1;
-        }
-        else
-        {
-            qualityDec = 2;
+            // Quality incrementing cases:
+            case("Aged Brie"):
+                qualityChange = (item.SellIn > 0) ? qualityChangeRates[0] : qualityChangeRates[1];
+            break;
+
+            case("Backstage passes to a TAFKAL80ETC concert"):
+                qualityChange = (item.SellIn > 0) ? CalculatePassesQuality(item.SellIn) : -item.Quality;
+            break;
+
+            // Quality decrementing cases:
+            case("Conjured Mana Cake"):
+                qualityChange = (item.SellIn > 0) ? -qualityChangeRates[1] : -qualityChangeRates[2];
+            break;
+
+            default:
+                qualityChange = (item.SellIn > 0) ? -qualityChangeRates[0] : -qualityChangeRates[1];
+            break;
         }
 
-        return qualityDec;
+        return qualityChange;
     }
 
     public void UpdateQuality()
@@ -90,22 +81,13 @@ public class GildedRose
         {
             // When item is legendary, avoid updating as its stats are constant.
             if(LegendaryItemsNames.Contains(item.Name))
-            {
                 continue;
-            }
 
-            // When item is appreciating (i.e., may increment its value over time), calculate the quality increment rate and update
-            if (AppreciatingItemsNames.Contains(item.Name))
-            {
-                item.Quality = Math.Min(MaxQuality, item.Quality + CalculateQualityIncrement(item));
-            }
-            else // normal items decrement their quality over time
-            {
-                item.Quality = Math.Max(MinQuality, item.Quality - CalculateQualityDecrement(item));
-            }
-
-            // Decrement the sellIn remaining days
-            item.SellIn = item.SellIn - 1;
+            // Update the quality of the item.
+            item.Quality = Math.Clamp(item.Quality + GetQualityChange(item), MinQuality, MaxQuality);
+            
+            // Decrement the selling remaining days of the item.
+            item.SellIn--;
         }
     }
 }
